@@ -27,125 +27,26 @@
 """
 
 # [START import]
-from functools import partial
 from ortools.constraint_solver import routing_enums_pb2
 from ortools.constraint_solver import pywrapcp
 from vrptw_experiments import Initializer
 # [END import]
 
 
-# [START data_model]
-def create_data_model():
-    """Stores the data for the problem."""
-    data = {}
-    # Locations in block unit
-    _locations = [
-        (4, 4),  # depot
-        (2, 0),
-        (8, 0),  # locations to visit
-        (0, 1),
-        (1, 1),
-        (5, 2),
-        (7, 2),
-        (3, 3),
-        (6, 3),
-        (5, 5),
-        (8, 5),
-        (1, 6),
-        (2, 6),
-        (3, 7),
-        (6, 7),
-        (0, 8),
-        (7, 8),
-    ]
-    # Compute locations in meters using the block dimension defined as follow
-    # Manhattan average block: 750ft x 264ft -> 228m x 80m
-    # here we use: 114m x 80m city block
-    # src: https://nyti.ms/2GDoRIe "NY Times: Know Your distance"
-    data["locations"] = [(location[0] * 114, location[1] * 80) for location in _locations]
-    data["num_locations"] = len(data["locations"])
-    data["time_windows"] = [
-        (0, 0),
-        (75, 85),
-        (75, 85),
-        (60, 70),
-        (45, 55),
-        (0, 8),
-        (50, 60),
-        (0, 10),
-        (10, 20),
-        (0, 10),
-        (75, 85),
-        (85, 95),
-        (5, 15),
-        (15, 25),
-        (10, 20),
-        (45, 55),
-        (30, 40),
-    ]
-    data["num_vehicles"] = 4
-    data["vehicle_speed"] = 83  # Travel speed: 5km/h converted in m/min
-    data["depot"] = 0
-    return data
-# [END data_model]
-
-
-# [START data_model v. 2]
+# [START data_model v.2]
 def create_random_data_model(clients_num, vehicles_num):
     """Stores the data for the problem."""
 
     initializer = Initializer(clients_num + 1, clients_num + 1, 0)
-    xc, yc, dist, time, tw = initializer.generate_nodes_weight_matrix_time_windows()
+    _, _, dist, time, tw = initializer.generate_nodes_weight_matrix_time_windows()
 
     data = {}
-    # Locations in block unit
-    _locations = [
-        (4, 4),  # depot
-        (2, 0),
-        (8, 0),  # locations to visit
-        (0, 1),
-        (1, 1),
-        (5, 2),
-        (7, 2),
-        (3, 3),
-        (6, 3),
-        (5, 5),
-        (8, 5),
-        (1, 6),
-        (2, 6),
-        (3, 7),
-        (6, 7),
-        (0, 8),
-        (7, 8),
-    ]
-    # Compute locations in meters using the block dimension defined as follow
-    # Manhattan average block: 750ft x 264ft -> 228m x 80m
-    # here we use: 114m x 80m city block
-    # src: https://nyti.ms/2GDoRIe "NY Times: Know Your distance"
-    data["locations"] = [(location[0] * 114, location[1] * 80) for location in _locations]
-    data["num_locations"] = len(data["locations"])
-    data["time_windows"] = [
-        (0, 0),
-        (75, 85),
-        (75, 85),
-        (60, 70),
-        (45, 55),
-        (0, 8),
-        (50, 60),
-        (0, 10),
-        (10, 20),
-        (0, 10),
-        (75, 85),
-        (85, 95),
-        (5, 15),
-        (15, 25),
-        (10, 20),
-        (45, 55),
-        (30, 40),
-    ]
+    data['distance_matrix'] = dist
+    data['time_matrix'] = time
+    data["time_windows"] = tw
     data["num_vehicles"] = vehicles_num
-    data["vehicle_speed"] = 83  # Travel speed: 5km/h converted in m/min
     data["depot"] = 0
+
     return data
     # [END data_model]
 
@@ -153,64 +54,6 @@ def create_random_data_model(clients_num, vehicles_num):
 #######################
 # Problem Constraints #
 #######################
-def manhattan_distance(position_1, position_2):
-    """Computes the Manhattan distance between two points"""
-    return abs(position_1[0] - position_2[0]) + abs(position_1[1] - position_2[1])
-
-
-def create_distance_evaluator(data):
-    """Creates callback to return distance between points."""
-    _distances = {}
-    # precompute distance between location to have distance callback in O(1)
-    for from_node in range(data["num_locations"]):
-        _distances[from_node] = {}
-        for to_node in range(data["num_locations"]):
-            if from_node == to_node:
-                _distances[from_node][to_node] = 0
-            else:
-                _distances[from_node][to_node] = manhattan_distance(
-                    data["locations"][from_node], data["locations"][to_node]
-                )
-
-    def distance_evaluator(manager, from_node, to_node):
-        """Returns the manhattan distance between the two nodes"""
-        return _distances[manager.IndexToNode(from_node)][manager.IndexToNode(to_node)]
-
-    return distance_evaluator
-
-
-def create_time_evaluator(data):
-    """Creates callback to get total times between locations."""
-
-    def travel_time(data, from_node, to_node):
-        """Gets the travel times between two locations."""
-        if from_node == to_node:
-            travel_time = 0
-        else:
-            travel_time = (
-                manhattan_distance(
-                    data["locations"][from_node], data["locations"][to_node]
-                )
-                / data["vehicle_speed"]
-            )
-        return travel_time
-
-    _total_time = {}
-    # precompute total time to have time callback in O(1)
-    for from_node in range(data["num_locations"]):
-        _total_time[from_node] = {}
-        for to_node in range(data["num_locations"]):
-            if from_node == to_node:
-                _total_time[from_node][to_node] = 0
-            else:
-                _total_time[from_node][to_node] = int(travel_time(data, from_node, to_node))
-
-    def time_evaluator(manager, from_node, to_node):
-        """Returns the total time between the two nodes"""
-        return _total_time[manager.IndexToNode(from_node)][manager.IndexToNode(to_node)]
-
-    return time_evaluator
-
 
 def add_time_window_constraints(routing, manager, data, time_evaluator_index):
     """Add Global Span constraint"""
@@ -220,7 +63,7 @@ def add_time_window_constraints(routing, manager, data, time_evaluator_index):
         time_evaluator_index,
         horizon,  # allow waiting time
         horizon,  # maximum time per vehicle
-        False,  # don't force start cumul to zero since we are giving TW to start nodes
+        False,    # don't force start cumul to zero since we are giving TW to start nodes
         time,
     )
     time_dimension = routing.GetDimensionOrDie(time)
@@ -289,13 +132,15 @@ def main():
     """Solve the Capacitated VRP with time windows."""
     # Instantiate the data problem.
     # [START data]
-    data = create_data_model()
+    clients_num = 3
+    vehicles_num = 1
+    data = create_random_data_model(clients_num, vehicles_num)
     # [END data]
 
     # Create the routing index manager.
     # [START index_manager]
     manager = pywrapcp.RoutingIndexManager(
-        data["num_locations"], data["num_vehicles"], data["depot"]
+        len(data['distance_matrix']), data["num_vehicles"], data["depot"]
     )
     # [END index_manager]
 
@@ -306,9 +151,14 @@ def main():
 
     # Define weight of each edge.
     # [START transit_callback]
-    distance_evaluator_index = routing.RegisterTransitCallback(
-        partial(create_distance_evaluator(data), manager)
-    )
+    def distance_callback(from_index, to_index):
+        """Returns the distance between the two nodes."""
+        # Convert from routing variable Index to distance matrix NodeIndex.
+        from_node = manager.IndexToNode(from_index)
+        to_node = manager.IndexToNode(to_index)
+        return data['distance_matrix'][from_node][to_node]
+
+    distance_evaluator_index = routing.RegisterTransitCallback(distance_callback)
     # [END transit_callback]
 
     # Define cost of each arc.
@@ -318,9 +168,15 @@ def main():
 
     # Add Time Window constraint.
     # [START time_constraint]
-    time_evaluator_index = routing.RegisterTransitCallback(
-        partial(create_time_evaluator(data), manager)
-    )
+
+    def time_callback(from_index, to_index):
+        """Returns the travel time between the two nodes."""
+        # Convert from routing variable Index to time matrix NodeIndex.
+        from_node = manager.IndexToNode(from_index)
+        to_node = manager.IndexToNode(to_index)
+        return data['time_matrix'][from_node][to_node]
+
+    time_evaluator_index = routing.RegisterTransitCallback(time_callback)
     add_time_window_constraints(routing, manager, data, time_evaluator_index)
     # [END time_constraint]
 
