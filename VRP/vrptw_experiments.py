@@ -30,20 +30,12 @@ class Initializer:
                 weight_matrix[i, j] = np.sqrt((x[i] - x[j]) ** 2 + (y[i] - y[j]) ** 2)
                 weight_matrix[j, i] = weight_matrix[i, j]
 
-        ###############################################
         time_windows = []
         for _ in range(n):
             earliest_time = round(np.random.rand() * self.MIN_TIME_WINDOW)
             latest_time = round(np.random.rand() * self.MAX_TIME_WINDOW + earliest_time)
             time_windows.append([earliest_time, latest_time])
-        ###############################################
         
-        # time_windows = [
-        #     (i, j) if i < j else (j, i)
-        #     for i, j in np.random.randint(
-        #         self.MIN_TIME_WINDOW, self.MAX_TIME_WINDOW, size=(n, 2)
-        #     )
-        # ]
         time_windows = np.insert(time_windows, 0, [0, 0], axis=0)  # depot time window
 
         travel_times = np.random.randint(
@@ -57,13 +49,15 @@ class Initializer:
 
 if __name__ == "__main__":
     # Create VRPTW problem instance:
-    n = 4  # number of clients
+    n = 3  # number of clients
     m = 2  # number of vehicles
 
     initializer = Initializer(n + 1, n + 1, 0)
     xc, yc, dist, time, tw = initializer.generate_nodes_weight_matrix_time_windows()
 
-    # Solve VRPTW with classical solver (using vrpy library):
+    tw = np.array([[0, 0], [0, 20], [3, 14], [1, 6], [5, 6]])
+
+    # Solve VRPTW with classical solver:
     classical_solver = VRPTW(n, m, dist, xc=xc, yc=yc, tw=tw, time=time)
-    sol = classical_solver.solve()
-    print(sol)
+    solution = classical_solver.solve()
+    print(solution)
