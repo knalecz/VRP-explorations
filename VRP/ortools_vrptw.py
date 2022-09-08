@@ -1,4 +1,15 @@
-"""Vehicles Routing Problem (VRP) with Time Windows."""
+"""
+Vehicles Routing Problem (VRP) with Time Windows.
+
+Solution largely based on:
+
+    https://github.com/google/or-tools/blob/stable/ortools/constraint_solver/samples/cvrptw.py
+
+    and
+
+    https://developers.google.com/optimization/routing/vrptw
+
+"""
 
 from ortools.constraint_solver import routing_enums_pb2
 from ortools.constraint_solver import pywrapcp
