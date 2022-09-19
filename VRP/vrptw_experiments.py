@@ -14,6 +14,15 @@ class Initializer:
         self.MIN_SERVICE_TIME = 1  # lower bound for service time
         self.MAX_SERVICE_TIME = 20  # upper bound for service time
 
+    def _get_travel_times(self):
+        travel_times = np.random.randint(
+            self.MIN_SERVICE_TIME, self.MAX_SERVICE_TIME, size=(n, n)
+        )
+        np.fill_diagonal(travel_times, 0)
+        travel_times = ((travel_times + travel_times.T) / 2).astype(int)
+        
+        return travel_times
+
     def generate_nodes_weight_matrix_time_windows(self):
         n = self.n
         a = self.a
@@ -41,13 +50,14 @@ class Initializer:
         # time_windows = np.insert(time_windows, 0, [0, 0], axis=0)  # depot time window
         time_windows = np.array(time_windows)
 
-        travel_times = np.random.randint(
-            self.MIN_SERVICE_TIME, self.MAX_SERVICE_TIME, size=(n, n)
-        )
-        np.fill_diagonal(travel_times, 0)
-        travel_times = ((travel_times + travel_times.T) / 2).astype(int)
+        travel_times = self.get_travel_times()
 
         return x, y, weight_matrix, travel_times, time_windows
+
+
+def ManhattanInitializer(Initializer):
+    def _get_travel_times(self):
+        pass
 
 
 if __name__ == "__main__":
